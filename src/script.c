@@ -29,12 +29,12 @@
  */
 
 #define MAX_HANDLES         512u
-#define MAX_PLACES          256u
+#define MAX_PLACES          512u
 #define MAX_HELD            64u
 #define MAX_CLICKS          64u
 #define MAX_SCROLLS         8u
 #define MAX_CLICK_CALLS     8u
-#define MAX_MODS            128u
+#define MAX_MODS            512u
 #define MAX_CLASSVARS       32u
 #define MAX_ACTIONS         256u
 #define MAX_DOMAIN          32u
@@ -1260,7 +1260,7 @@ static bool has_class(const node_t* n, const char* name)
 }
 
 /* The states laid out, kept for painting their looks (c->states) */
-#define MAX_STATES      96u
+#define MAX_STATES      256u
 
 typedef struct
 {
@@ -1300,7 +1300,9 @@ static conv_t* run_state(script_t* sc, const mod_t* a, const mod_t* b, int* stat
     }
     if (st->count >= MAX_STATES)
     {
-        WARN(c, "script: too many states of the page - the rest not converted\n");
+        /* Not a warning: the states left out are what the page's later changes look like */
+        DMOD_LOG_ERROR("dmvs_html: script: more than %u states of the page\n", (unsigned)MAX_STATES);
+        *status = -ENOSPC;
         return NULL;
     }
     conv_t* s = Dmod_Malloc(sizeof(*s));
@@ -1820,7 +1822,11 @@ static int lay_out_changes(script_t* sc)
     {
         const place_t* p = &sc->places[i];
         if (change(sc, p->element, p->kind, p->name, p->value) == NULL)
-            WARN(c, "script: too many changes of elements - not converted\n");
+        {
+            /* Not a warning: the changes left out are the page's later ones - whatever it does after */
+            DMOD_LOG_ERROR("dmvs_html: script: more than %u changes of elements\n", (unsigned)MAX_MODS);
+            return -ENOSPC;
+        }
     }
     for (uint32_t i = 0; i < sc->change_count && status == 0; i++)
         status = lay_out_change(sc, &sc->changes[i]);
